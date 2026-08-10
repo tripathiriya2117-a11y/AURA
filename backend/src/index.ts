@@ -76,6 +76,8 @@ app.get(
   }
 );
 
-app.listen(3000, () => {
-  console.log("🚀 Victor backend running");
+const PORT = Number(process.env.PORT) || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Victor backend running on port ${PORT}`);
 });
