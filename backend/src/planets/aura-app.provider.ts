@@ -6,7 +6,7 @@ import {
 } from "./planet.provider";
 
 export class AuraAppPlanetProvider implements PlanetProvider {
-  private baseUrl = "http://localhost:5000";
+  private baseUrl = "https://aura-angles-api.onrender.com";
 
   async getPlanetContext(planetId: string): Promise<PlanetContext> {
     const planetUrl = `${this.baseUrl}/api/planets/${planetId}`;
