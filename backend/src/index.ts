@@ -13,6 +13,8 @@ dotenv.config();
 
 const app = express();
 
+app.use("/planets", planetRoute);
+
 app.use(cors());
 app.use(express.json());
 
@@ -23,7 +25,7 @@ app.use("/chat", chatRoute);
 
 app.get("/", (_, res) => {
   res.json({
-    message: "Aura backend is alive!",
+    message: "Victor backend is alive!",
   });
 });
 
@@ -75,5 +77,5 @@ app.get(
 );
 
 app.listen(3000, () => {
-  console.log("🚀 Aura backend running");
+  console.log("🚀 Victor backend running");
 });

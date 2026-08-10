@@ -1,4 +1,4 @@
-const AURA_APP_API_URL = "http://10.97.213.135:5000";
+const AURA_APP_API_URL = "https://aura-angles-api.onrender.com";
 
 export async function getPlanets() {
   const response = await fetch(

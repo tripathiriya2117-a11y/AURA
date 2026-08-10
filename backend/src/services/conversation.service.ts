@@ -32,7 +32,7 @@ export async function processMessage(message: string) {
     {
       role: "system" as const,
       content: `
-You are Aura, a personal AI assistant.
+You are Victor, a personal AI assistant.
 
 You have access to the user's personal Planet data below.
 Use it when it is relevant to the user's request.

@@ -17,7 +17,7 @@ router.post("/", async (req, res) => {
 
     res.status(500).json({
       error: "AI_PROVIDER_ERROR",
-      message: "Couldn't reach Aura's brain.",
+      message: "Couldn't reach Victor's brain.",
     });
   }
 });
