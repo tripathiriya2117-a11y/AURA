@@ -20,24 +20,76 @@ export async function processMessage(message: string) {
 
   const history = getHistory();
 
-  const selfPlanet = await planetProvider.getPlanetContext(
-    "design-studio"
+  const groqProvider = new GroqProvider();
+
+  // 1. Get available planets
+  const planets = await planetProvider.getPlanets();
+
+  console.log("Available planets:", planets);
+
+  // 2. Ask Groq which planet is relevant
+  const selectionMessages = [
+    {
+      role: "system" as const,
+      content: `
+You are selecting the most relevant personal planet for a user's request.
+
+Available planets:
+${JSON.stringify(planets, null, 2)}
+
+Rules:
+- Return ONLY the exact planet ID from the list.
+- Do not return the planet name.
+- Do not explain your answer.
+- If none of the planets is relevant, return NONE.
+      `.trim(),
+    },
+    {
+      role: "user" as const,
+      content: message,
+    },
+  ];
+
+  const selectedPlanetId =
+    (await groqProvider.chat(selectionMessages)).trim();
+
+  console.log(
+    "Selected planet:",
+    selectedPlanetId
   );
 
-  const planetContext = {
-    self: selfPlanet,
-  };
+  // 3. Validate the AI's selection
+  const selectedPlanet = planets.find(
+    (planet) => planet.id === selectedPlanetId
+  );
 
+  let planetContext = null;
+
+  if (selectedPlanet) {
+    planetContext =
+      await planetProvider.getPlanetContext(
+        selectedPlanet.id
+      );
+
+    console.log(
+      "Loaded planet context:",
+      selectedPlanet.name
+    );
+  }
+
+  // 4. Give the actual context to the final AI response
   const messages = [
     {
       role: "system" as const,
       content: `
 You are Victor, a personal AI assistant.
 
-You have access to the user's personal Planet data below.
-Use it when it is relevant to the user's request.
+Use the user's personal planet context when it is relevant.
 
-Do not claim to know information that is not present in the provided context.
+Do not claim to know information that is not present
+in the provided context.
+
+If the context does not contain the answer, say so honestly.
 
 PERSONAL PLANET CONTEXT:
 ${JSON.stringify(planetContext, null, 2)}
@@ -46,9 +98,7 @@ ${JSON.stringify(planetContext, null, 2)}
     ...history,
   ];
 
-  const groqProvider = new GroqProvider();
-
-const reply = await groqProvider.chat(messages);
+  const reply = await groqProvider.chat(messages);
 
   addAssistantMessage(reply);
 

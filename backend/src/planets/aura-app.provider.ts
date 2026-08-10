@@ -3,10 +3,32 @@ import {
   PlanetContext,
   PlanetCollection,
   PlanetItem,
+  PlanetSummary,
 } from "./planet.provider";
 
 export class AuraAppPlanetProvider implements PlanetProvider {
   private baseUrl = "https://aura-angles-api.onrender.com";
+
+  async getPlanets(): Promise<PlanetSummary[]> {
+  const planetsUrl = `${this.baseUrl}/api/planets`;
+
+  console.log("Fetching planets:", planetsUrl);
+
+  const response = await fetch(planetsUrl);
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch planets: ${response.status}`
+    );
+  }
+
+  const planets = await response.json();
+
+  return planets.map((planet: any) => ({
+    id: planet.id,
+    name: planet.name ?? planet.title,
+  }));
+}
 
   async getPlanetContext(planetId: string): Promise<PlanetContext> {
     const planetUrl = `${this.baseUrl}/api/planets/${planetId}`;

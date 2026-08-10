@@ -11,6 +11,11 @@ export type PlanetCollection = {
   items: PlanetItem[];
 };
 
+export type PlanetSummary = {
+  id: string;
+  name: string;
+};
+
 export type PlanetContext = {
   id: string;
   name: string;
@@ -18,5 +23,6 @@ export type PlanetContext = {
 };
 
 export interface PlanetProvider {
+  getPlanets(): Promise<PlanetSummary[]>;
   getPlanetContext(planetId: string): Promise<PlanetContext>;
 }
