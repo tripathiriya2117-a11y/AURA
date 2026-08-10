@@ -19,12 +19,13 @@ export async function getPlanet(planetId: string) {
     `${AURA_APP_API_URL}/api/planets/${planetId}`
   );
 
-  if (!response.ok) {
-    throw new Error(
-      `aura-app API error: ${response.status}`
-    );
-  }
+ if (!response.ok) {
+  const errorBody = await response.text();
 
+  throw new Error(
+    `aura-app API error: ${response.status} ${errorBody}`
+  );
+}
   return response.json();
 }
 
