@@ -8,10 +8,6 @@ export async function planAction(
   message: string,
   planet: PlanetContext | null
 ): Promise<Action> {
-  if (!planet) {
-    return { type: "none" };
-  }
-
   const currentDate = new Date().toISOString();
 
   const messages = [
@@ -30,17 +26,38 @@ ${JSON.stringify(planet, null, 2)}
 
 SUPPORTED ACTIONS:
 
-1. create_item
-2. create_collection
-3. create_task
-4. update_item
-5. update_task
-6. complete_task
-7. list_tasks
-8. get_upcoming_tasks
-9. get_today_tasks
-10. clarification
-11. none
+PLANETS:
+1. create_planet
+2. update_planet
+3. delete_planet
+4. list_planets
+5. get_planet
+
+COLLECTIONS:
+6. create_collection
+7. update_collection
+8. delete_collection
+9. list_collections
+10. get_collection
+
+ITEMS:
+11. create_item
+12. update_item
+13. delete_item
+14. get_item
+
+TASKS:
+15. create_task
+16. update_task
+17. complete_task
+18. delete_task
+19. list_tasks
+20. get_upcoming_tasks
+21. get_today_tasks
+
+META:
+22. clarification
+23. none
 
 RULES:
 
@@ -76,6 +93,13 @@ RULES:
   return clarification asking the user for the date
   instead of inventing one.
 
+- For destructive operations (delete_planet,
+  delete_collection, delete_item, delete_task),
+  the user must clearly identify the target.
+  If they use a name instead of an ID, or if
+  multiple entities could match, return:
+  {"type":"clarification","question":"Which one do you mean? ..."}
+
 - If the user is not asking to modify or query aura-app data,
   return:
   {"type":"none"}
@@ -85,13 +109,12 @@ READ / QUERY REQUESTS:
 
 Questions such as:
 
-- "Is there a study session for NIMCET?"
-- "Do I have a NIMCET study session?"
-- "When is my NIMCET study session?"
-- "What is in my Schedule?"
-- "What collections do I have?"
-- "What time is my college?"
-- "Tell me about my NIMCET schedule."
+- "What planets do I have?"
+- "Show me my planets."
+- "What collections are in X?"
+- "What's inside X?"
+- "Show me the items in X."
+- "Find the item called Y."
 - "What tasks do I have today?"
 - "What's due this week?"
 - "What am I supposed to do today?"
@@ -99,6 +122,22 @@ Questions such as:
 - "List all my tasks."
 
 are READ requests.
+
+For planet-related read requests:
+- "What planets do I have?" / "Show me my planets."
+  → {"type":"list_planets"}
+- "Tell me about X." / "What is X?" where X is a planet name
+  → {"type":"get_planet","input":{"id":"PLANET_ID"}}
+
+For collection-related read requests:
+- "What collections are in X?" where X is a planet
+  → {"type":"list_collections","input":{"planetId":"PLANET_ID"}}
+- "What's inside X?" where X is a collection
+  → {"type":"get_collection","input":{"id":"COLLECTION_ID"}}
+- "Show me the items in X." where X is a collection
+  → {"type":"get_collection","input":{"id":"COLLECTION_ID"}}
+- "Find the item called Y." where Y is an item title
+  → {"type":"get_item","input":{"id":"ITEM_ID"}}
 
 For task-related read requests, ALWAYS return the
 corresponding task read action:
@@ -112,35 +151,43 @@ corresponding task read action:
 - "Show my tasks." / "List all tasks."
   → {"type":"list_tasks"}
 
-For collection/item read requests, ALWAYS return:
-
-{
-  "type": "none"
-}
-
 Do NOT return clarification for a READ request.
 Do NOT ask whether the user wants to create something.
 
 
 WRITE REQUESTS:
 
-Only use create_item, create_collection, create_task,
-update_item, update_task, complete_task, or clarification
+Only use create_* / update_* / delete_* or clarification
 when the user explicitly wants to change personal data.
 
 Examples:
 
-"Add a NIMCET study session."
-→ write request
+"Create a new planet called X."
+→ write request → create_planet
 
-"Create a NIMCET collection."
-→ write request
+"Rename my planet X to Y."
+→ write request → update_planet
 
-"Change my Monday session to Tuesday."
-→ write request
+"Delete my planet X."
+→ write request → delete_planet
 
-"Delete my NIMCET session."
-→ write request
+"Create a collection called X in planet Y."
+→ write request → create_collection
+
+"Rename collection X."
+→ write request → update_collection
+
+"Delete collection X."
+→ write request → delete_collection
+
+"Add an item to collection X."
+→ write request → create_item
+
+"Update item X."
+→ write request → update_item
+
+"Delete item X."
+→ write request → delete_item
 
 "I have an internship assignment due Friday."
 → write request → create_task
@@ -150,6 +197,9 @@ Examples:
 
 "Mark my internship as complete."
 → write request → complete_task
+
+"Delete my internship task."
+→ write request → delete_task
 
 "Is there a NIMCET session?"
 → READ request → none or task read action
@@ -174,12 +224,83 @@ Clarification:
   "question": "..."
 }
 
+Create planet:
+{
+  "type": "create_planet",
+  "input": {
+    "name": "..."
+  }
+}
+
+Update planet:
+{
+  "type": "update_planet",
+  "input": {
+    "id": "EXISTING_PLANET_ID",
+    "name": "..."
+  }
+}
+
+Delete planet:
+{
+  "type": "delete_planet",
+  "input": {
+    "id": "EXISTING_PLANET_ID"
+  }
+}
+
+List planets:
+{
+  "type": "list_planets"
+}
+
+Get planet:
+{
+  "type": "get_planet",
+  "input": {
+    "id": "EXISTING_PLANET_ID"
+  }
+}
+
 Create collection:
 {
   "type": "create_collection",
   "input": {
     "planetId": "EXISTING_PLANET_ID",
     "title": "..."
+  }
+}
+
+Update collection:
+{
+  "type": "update_collection",
+  "input": {
+    "id": "EXISTING_COLLECTION_ID",
+    "title": "..."
+  }
+}
+
+Delete collection:
+{
+  "type": "delete_collection",
+  "input": {
+    "id": "EXISTING_COLLECTION_ID"
+  }
+}
+
+List collections:
+{
+  "type": "list_collections",
+  "input": {
+    "planetId": "EXISTING_PLANET_ID"
+  }
+}
+
+Get collection:
+{
+  "type": "get_collection",
+  "input": {
+    "id": "EXISTING_COLLECTION_ID"
   }
 }
 
@@ -191,6 +312,32 @@ Create item:
     "title": "...",
     "content": "...",
     "type": "text"
+  }
+}
+
+Update item:
+{
+  "type": "update_item",
+  "input": {
+    "id": "EXISTING_ITEM_ID",
+    "title": "...",
+    "content": "..."
+  }
+}
+
+Delete item:
+{
+  "type": "delete_item",
+  "input": {
+    "id": "EXISTING_ITEM_ID"
+  }
+}
+
+Get item:
+{
+  "type": "get_item",
+  "input": {
+    "id": "EXISTING_ITEM_ID"
   }
 }
 
@@ -221,6 +368,14 @@ Update task:
 Complete task:
 {
   "type": "complete_task",
+  "input": {
+    "id": "EXISTING_TASK_ID"
+  }
+}
+
+Delete task:
+{
+  "type": "delete_task",
   "input": {
     "id": "EXISTING_TASK_ID"
   }
@@ -260,12 +415,24 @@ Do not execute anything.
     const allowedTypes = new Set([
       "none",
       "clarification",
-      "create_item",
+      "create_planet",
+      "update_planet",
+      "delete_planet",
+      "list_planets",
+      "get_planet",
       "create_collection",
+      "update_collection",
+      "delete_collection",
+      "list_collections",
+      "get_collection",
+      "create_item",
       "update_item",
+      "delete_item",
+      "get_item",
       "create_task",
       "update_task",
       "complete_task",
+      "delete_task",
       "list_tasks",
       "get_upcoming_tasks",
       "get_today_tasks",

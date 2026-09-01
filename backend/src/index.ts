@@ -17,13 +17,6 @@ import {
 
 dotenv.config();
 
-console.log(
-  "Pinterest token:",
-  process.env.PINTEREST_API_KEY
-    ? `LOADED (${process.env.PINTEREST_API_KEY.length} chars)`
-    : "NOT LOADED"
-);
-
 const app = express();
 
 app.use(cors());
@@ -33,9 +26,6 @@ app.use("/planets", planetRoute);
 app.use("/chat", chatRoute);
 app.use("/voice", voiceRoute);
 app.use("/tts", ttsRouter);
-
-console.log("chatRoute", chatRoute);
-console.log("type =", typeof chatRoute);
 
 app.get("/", (_, res) => {
   res.json({

@@ -121,7 +121,263 @@ export async function updateItem(
   return response.json();
 }
 
-// ─── Task actions ──────────────────────────────────────────────
+export async function deleteItem(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/items/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to delete item: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function getItemById(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/items/${id}`
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to fetch item: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function listItems(collectionId: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/collections/${collectionId}/items`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to list items: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+// ─── Collection actions ─────────────────────────────────────────
+
+export type UpdateCollectionInput = {
+  id: string;
+  title?: string;
+};
+
+export async function listCollections(
+  planetId: string
+) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/collections/planet/${planetId}`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to list collections: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function getCollectionById(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/collections/${id}`
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to fetch collection: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function updateCollection(
+  input: UpdateCollectionInput
+) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/collections/${input.id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...input,
+        updatedAt: new Date().toISOString(),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to update collection: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function deleteCollection(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/collections/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to delete collection: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+// ─── Planet actions ─────────────────────────────────────────────
+
+export type CreatePlanetInput = {
+  name: string;
+};
+
+export type UpdatePlanetInput = {
+  id: string;
+  name?: string;
+};
+
+export async function listPlanets() {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/planets`
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to list planets: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function getPlanetById(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/planets/${id}`
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to fetch planet: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function createPlanet(
+  input: CreatePlanetInput
+) {
+  const now = new Date().toISOString();
+
+  const planet = {
+    name: input.name.trim(),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/planets`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(planet),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to create planet: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function updatePlanet(
+  input: UpdatePlanetInput
+) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/planets/${input.id}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...input,
+        updatedAt: new Date().toISOString(),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to update planet: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function deletePlanet(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/planets/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to delete planet: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+// ─── Task actions ───────────────────────────────────────────────
 
 export type CreateTaskInput = {
   title: string;
@@ -241,6 +497,25 @@ export async function completeTask(id: string) {
 
     throw new Error(
       `Failed to complete task: ${response.status} ${error}`
+    );
+  }
+
+  return response.json();
+}
+
+export async function deleteTask(id: string) {
+  const response = await fetch(
+    `${AURA_APP_API_URL}/api/tasks/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+
+    throw new Error(
+      `Failed to delete task: ${response.status} ${error}`
     );
   }
 

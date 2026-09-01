@@ -9,6 +9,12 @@ import {
   getUpcomingTasks,
   getTodayTasks,
   listTasks,
+  listPlanets,
+  getPlanetById,
+  listCollections,
+  getCollectionById,
+  listItems,
+  getItemById,
 } from "./auraAppAction.service";
 
 import {
@@ -16,6 +22,173 @@ import {
   addAssistantMessage,
   getHistory,
 } from "./history.service";
+import { resolveRelativeDate, type ResolvedDate } from "./dateResolver.service";
+
+async function resolvePlanetId(
+  nameOrId: string
+): Promise<string> {
+  const trimmed = nameOrId.trim();
+
+  if (/^[0-9a-fA-F-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const planets = await listPlanets();
+  const normalized = trimmed.toLowerCase();
+
+  const exactMatch = planets.find(
+    (planet: any) =>
+      (planet.name ?? planet.title)
+        .toLowerCase() === normalized
+  );
+
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const partialMatches = planets.filter((planet: any) =>
+    (planet.name ?? planet.title)
+      .toLowerCase()
+      .includes(normalized)
+  );
+
+  if (partialMatches.length === 1) {
+    return partialMatches[0].id;
+  }
+
+  if (partialMatches.length > 1) {
+    const names = partialMatches
+      .map(
+        (p: any) =>
+          p.name ?? p.title
+      )
+      .join(", ");
+
+    throw new Error(
+      `Multiple planets match "${trimmed}": ${names}. Which one do you mean?`
+    );
+  }
+
+  throw new Error(
+    `No planet found matching "${trimmed}".`
+  );
+}
+
+async function resolveCollectionId(
+  planetId: string,
+  nameOrId: string
+): Promise<string> {
+  const trimmed = nameOrId.trim();
+
+  if (/^[0-9a-fA-F-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const collections = await listCollections(planetId);
+  const normalized = trimmed.toLowerCase();
+
+  const exactMatch = collections.find(
+    (collection: any) =>
+      collection.title.toLowerCase() === normalized
+  );
+
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const partialMatches = collections.filter(
+    (collection: any) =>
+      collection.title.toLowerCase().includes(normalized)
+  );
+
+  if (partialMatches.length === 1) {
+    return partialMatches[0].id;
+  }
+
+  if (partialMatches.length > 1) {
+    const names = partialMatches
+      .map((c: any) => c.title)
+      .join(", ");
+
+    throw new Error(
+      `Multiple collections match "${trimmed}": ${names}. Which one do you mean?`
+    );
+  }
+
+  throw new Error(
+    `No collection found matching "${trimmed}".`
+  );
+}
+
+async function resolveItemId(
+  collectionId: string,
+  nameOrId: string
+): Promise<string> {
+  const trimmed = nameOrId.trim();
+
+  if (/^[0-9a-fA-F-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const items = await listItems(collectionId);
+  const normalized = trimmed.toLowerCase();
+
+  const exactMatch = items.find(
+    (item: any) =>
+      item.title.toLowerCase() === normalized
+  );
+
+  if (exactMatch) {
+    return exactMatch.id;
+  }
+
+  const partialMatches = items.filter((item: any) =>
+    item.title.toLowerCase().includes(normalized)
+  );
+
+  if (partialMatches.length === 1) {
+    return partialMatches[0].id;
+  }
+
+  if (partialMatches.length > 1) {
+    const titles = partialMatches
+      .map((i: any) => i.title)
+      .join(", ");
+
+    throw new Error(
+      `Multiple items match "${trimmed}": ${titles}. Which one do you mean?`
+    );
+  }
+
+  throw new Error(
+    `No item found matching "${trimmed}".`
+  );
+}
+
+async function resolveTaskDates(
+  input: Record<string, unknown>
+): Promise<Record<string, string> | null> {
+  const resolved: Record<string, string> = {};
+
+  const dateFields: Array<{ key: string; value?: string }> = [
+    { key: "dueAt", value: input.dueAt as string | undefined },
+    { key: "reminderAt", value: input.reminderAt as string | undefined },
+  ];
+
+  for (const field of dateFields) {
+    if (!field.value) continue;
+
+    const result = resolveRelativeDate(field.value);
+
+    if (result === null) {
+      return null;
+    }
+
+    resolved[field.key] = result.iso;
+  }
+
+  return resolved;
+}
 
 export async function processMessage(message: string) {
   addUserMessage(message);
@@ -49,7 +222,246 @@ export async function processMessage(message: string) {
     };
   }
 
-  // 4. Create collection
+  // 4. Create planet
+  if (action.type === "create_planet") {
+    try {
+      const createdPlanet =
+        await executeAction(action);
+
+      const reply =
+        `Done. I created the planet "${createdPlanet.name}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Planet creation failed:",
+        error
+      );
+
+      const reply =
+        "I couldn't create that planet. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 5. Update planet
+  if (action.type === "update_planet") {
+    try {
+      if (!action.input?.id) {
+        throw new Error(
+          "update_planet requires an id"
+        );
+      }
+
+      const planet = await executeAction(action);
+
+      const reply =
+        `Done. I updated "${planet.name}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Planet update failed:",
+        error
+      );
+
+      const reply =
+        "I couldn't update that planet. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 6. Delete planet
+  if (action.type === "delete_planet") {
+    try {
+      if (!action.input?.id) {
+        const resolvedId = await resolvePlanetId(
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
+      const deletedPlanet =
+        await executeAction(action);
+
+      const reply =
+        `Done. I deleted the planet "${deletedPlanet.name}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Planet deletion failed:",
+        error
+      );
+
+      const reply =
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't delete that planet. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 7. List planets
+  if (action.type === "list_planets") {
+    try {
+      const planets = await executeAction(action);
+
+      if (!Array.isArray(planets) || planets.length === 0) {
+        const reply = "You have no planets.";
+
+        addAssistantMessage(reply);
+
+        return {
+          reply,
+          speech: createSpeechText(reply),
+        };
+      }
+
+      const lines = planets.map(
+        (planet: any) => {
+          const name =
+            planet.name ?? planet.title;
+
+          return `- ${name}`;
+        }
+      );
+
+      const reply =
+        "Here are your planets:\n" +
+        lines.join("\n");
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Planet query failed:",
+        error
+      );
+
+      const reply =
+        "I couldn't load your planets right now. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 8. Get planet
+  if (action.type === "get_planet") {
+    try {
+      if (!action.input?.id) {
+        const resolvedId = await resolvePlanetId(
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
+      const planet = await executeAction(action);
+
+      const collections = planet.collections ?? [];
+
+      if (collections.length === 0) {
+        const reply =
+          `"${planet.name}" has no collections yet.`;
+
+        addAssistantMessage(reply);
+
+        return {
+          reply,
+          speech: createSpeechText(reply),
+        };
+      }
+
+      const lines = collections.map(
+        (collection: any) => {
+          const itemCount =
+            collection.items?.length ?? 0;
+
+          return `- ${collection.title} (${itemCount} items)`;
+        }
+      );
+
+      const reply =
+        `"${planet.name}" contains:\n` +
+        lines.join("\n");
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Planet fetch failed:",
+        error
+      );
+
+      const reply =
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't load that planet. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 9. Create collection
   if (action.type === "create_collection") {
     try {
       const createdCollection =
@@ -83,7 +495,229 @@ export async function processMessage(message: string) {
     }
   }
 
-  // 5. Create item
+  // 10. Update collection
+  if (action.type === "update_collection") {
+    try {
+      if (!action.input?.id) {
+        throw new Error(
+          "update_collection requires an id"
+        );
+      }
+
+      const updatedCollection =
+        await executeAction(action);
+
+      const reply =
+        `Done. I renamed the collection to "${updatedCollection.title}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Collection update failed:",
+        error
+      );
+
+      const reply =
+        "I couldn't update that collection. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 11. Delete collection
+  if (action.type === "delete_collection") {
+    try {
+      if (!action.input?.id) {
+        if (!context.planet?.id) {
+          throw new Error(
+            "delete_collection requires an id"
+          );
+        }
+
+        const resolvedId = await resolveCollectionId(
+          context.planet.id,
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
+      const deletedCollection =
+        await executeAction(action);
+
+      const reply =
+        `Done. I deleted the collection "${deletedCollection.title}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Collection deletion failed:",
+        error
+      );
+
+      const reply =
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't delete that collection. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 12. List collections
+  if (action.type === "list_collections") {
+    try {
+      const collections = await executeAction(
+        action
+      );
+
+      if (
+        !Array.isArray(collections) ||
+        collections.length === 0
+      ) {
+        const reply =
+          "This planet has no collections yet.";
+
+        addAssistantMessage(reply);
+
+        return {
+          reply,
+          speech: createSpeechText(reply),
+        };
+      }
+
+      const lines = collections.map(
+        (collection: any) => {
+          const itemCount =
+            collection.items?.length ?? 0;
+
+          return `- ${collection.title} (${itemCount} items)`;
+        }
+      );
+
+      const reply =
+        "Here are the collections:\n" +
+        lines.join("\n");
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Collection query failed:",
+        error
+      );
+
+      const reply =
+        "I couldn't load the collections. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 13. Get collection
+  if (action.type === "get_collection") {
+    try {
+      if (!action.input?.id) {
+        if (!context.planet?.id) {
+          throw new Error(
+            "get_collection requires an id"
+          );
+        }
+
+        const resolvedId = await resolveCollectionId(
+          context.planet.id,
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
+      const collection = await executeAction(action);
+
+      const items = collection.items ?? [];
+
+      if (items.length === 0) {
+        const reply =
+          `"${collection.title}" is empty.`;
+
+        addAssistantMessage(reply);
+
+        return {
+          reply,
+          speech: createSpeechText(reply),
+        };
+      }
+
+      const lines = items.map((item: any) => {
+        return `- ${item.title}`;
+      });
+
+      const reply =
+        `"${collection.title}" contains:\n` +
+        lines.join("\n");
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Collection fetch failed:",
+        error
+      );
+
+      const reply =
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't load that collection. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 14. Create item
   if (action.type === "create_item") {
     try {
       const createdItem =
@@ -117,9 +751,35 @@ export async function processMessage(message: string) {
     }
   }
 
-  // 6. Update item
+  // 15. Update item
   if (action.type === "update_item") {
     try {
+      if (!action.input?.id) {
+        if (!context.planet?.id) {
+          throw new Error(
+            "update_item requires an id"
+          );
+        }
+
+        const collections = await listCollections(
+          context.planet.id
+        );
+
+        if (collections.length === 0) {
+          throw new Error(
+            "No collections found in this planet."
+          );
+        }
+
+        const firstCollection = collections[0];
+        const resolvedId = await resolveItemId(
+          firstCollection.id,
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
       const updatedItem =
         await executeAction(action);
 
@@ -139,7 +799,12 @@ export async function processMessage(message: string) {
       );
 
       const reply =
-        "I couldn't update that item in your aura-app data.";
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't update that item. Please try again.";
 
       addAssistantMessage(reply);
 
@@ -150,11 +815,156 @@ export async function processMessage(message: string) {
     }
   }
 
-  // 7. Create task
+  // 16. Delete item
+  if (action.type === "delete_item") {
+    try {
+      if (!action.input?.id) {
+        if (!context.planet?.id) {
+          throw new Error(
+            "delete_item requires an id"
+          );
+        }
+
+        const collections = await listCollections(
+          context.planet.id
+        );
+
+        if (collections.length === 0) {
+          throw new Error(
+            "No collections found in this planet."
+          );
+        }
+
+        const firstCollection = collections[0];
+        const resolvedId = await resolveItemId(
+          firstCollection.id,
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
+      const deletedItem =
+        await executeAction(action);
+
+      const reply =
+        `Done. I deleted "${deletedItem.title}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Item deletion failed:",
+        error
+      );
+
+      const reply =
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't delete that item. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 17. Get item
+  if (action.type === "get_item") {
+    try {
+      if (!action.input?.id) {
+        if (!context.planet?.id) {
+          throw new Error(
+            "get_item requires an id"
+          );
+        }
+
+        const collections = await listCollections(
+          context.planet.id
+        );
+
+        if (collections.length === 0) {
+          throw new Error(
+            "No collections found in this planet."
+          );
+        }
+
+        const firstCollection = collections[0];
+        const resolvedId = await resolveItemId(
+          firstCollection.id,
+          message
+        );
+
+        action.input = { id: resolvedId };
+      }
+
+      const item = await executeAction(action);
+
+      const reply =
+        `"${item.title}":\n${item.content}`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Item fetch failed:",
+        error
+      );
+
+      const reply =
+        error instanceof Error &&
+        error.message.includes(
+          "Which one do you mean"
+        )
+          ? error.message
+          : "I couldn't find that item. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 18. Create task
   if (action.type === "create_task") {
     try {
-      const createdTask =
-        await executeAction(action);
+      const resolvedDates = await resolveTaskDates(
+        action.input as Record<string, unknown>
+      );
+
+      if (resolvedDates === null) {
+        const reply =
+          "I'm not sure what date you mean. Could you be more specific?";
+
+        addAssistantMessage(reply);
+
+        return {
+          reply,
+          speech: createSpeechText(reply),
+        };
+      }
+
+      const createdTask = await executeAction({
+        ...action,
+        input: { ...action.input, ...resolvedDates },
+      });
 
       const dueText = createdTask.dueAt
         ? ` due ${new Date(createdTask.dueAt).toLocaleString()}`
@@ -188,11 +998,29 @@ export async function processMessage(message: string) {
     }
   }
 
-  // 8. Update task
+  // 19. Update task
   if (action.type === "update_task") {
     try {
-      const updatedTask =
-        await executeAction(action);
+      const resolvedDates = await resolveTaskDates(
+        action.input as Record<string, unknown>
+      );
+
+      if (resolvedDates === null) {
+        const reply =
+          "I'm not sure what date you mean. Could you be more specific?";
+
+        addAssistantMessage(reply);
+
+        return {
+          reply,
+          speech: createSpeechText(reply),
+        };
+      }
+
+      const updatedTask = await executeAction({
+        ...action,
+        input: { ...action.input, ...resolvedDates },
+      });
 
       const reply =
         `Done. I updated "${updatedTask.title}".`;
@@ -221,7 +1049,7 @@ export async function processMessage(message: string) {
     }
   }
 
-  // 9. Complete task
+  // 20. Complete task
   if (action.type === "complete_task") {
     try {
       const updatedTask =
@@ -254,7 +1082,40 @@ export async function processMessage(message: string) {
     }
   }
 
-  // 10. List tasks (read)
+  // 21. Delete task
+  if (action.type === "delete_task") {
+    try {
+      const deletedTask =
+        await executeAction(action);
+
+      const reply =
+        `Done. I deleted "${deletedTask.title}".`;
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    } catch (error) {
+      console.error(
+        "Task deletion failed:",
+        error
+      );
+
+      const reply =
+        "I couldn't delete that task. Please try again.";
+
+      addAssistantMessage(reply);
+
+      return {
+        reply,
+        speech: createSpeechText(reply),
+      };
+    }
+  }
+
+  // 22. List tasks (read)
   if (
     action.type === "list_tasks" ||
     action.type === "get_upcoming_tasks" ||
@@ -324,13 +1185,13 @@ export async function processMessage(message: string) {
     }
   }
 
-    // 11. Try answering simple factual memory questions
-    // directly from aura-app without calling an AI provider.
-    const directMemoryAnswer =
-      tryDirectMemoryAnswer(
-        message,
-        context.planet
-      );
+  // 23. Try answering simple factual memory questions
+  // directly from aura-app without calling an AI provider.
+  const directMemoryAnswer =
+    tryDirectMemoryAnswer(
+      message,
+      context.planet
+    );
 
   if (directMemoryAnswer.handled) {
     addAssistantMessage(
@@ -360,7 +1221,7 @@ export async function processMessage(message: string) {
     };
   }
 
-  // 8. No action required → normal Victor response.
+  // 24. No action required → normal Victor response.
   const messages = [
     {
       role: "system" as const,
