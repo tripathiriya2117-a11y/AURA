@@ -1,0 +1,11 @@
+# Audio artifacts
+*.wav
+
+# Test artifacts
+test_kokoro.py
+
+# TTS output
+tts/
+
+# Misformatted command output artifact
+tatus --short

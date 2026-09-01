@@ -1,27 +1,41 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
+import voiceRoute from "./routes/voice";
 import chatRoute from "./routes/chat";
+import planetRoute from "./routes/planet";
+import ttsRouter from "./routes/tts";
+
+import { getPinterestAccount } from "./services/pinterestService";
+
 import {
   getPlanets,
   getPlanetContext,
 } from "./services/auraAppService";
-import planetRoute from "./routes/planet";
 
 dotenv.config();
 
-const app = express();
+console.log(
+  "Pinterest token:",
+  process.env.PINTEREST_API_KEY
+    ? `LOADED (${process.env.PINTEREST_API_KEY.length} chars)`
+    : "NOT LOADED"
+);
 
-app.use("/planets", planetRoute);
+const app = express();
 
 app.use(cors());
 app.use(express.json());
 
+app.use("/planets", planetRoute);
+app.use("/chat", chatRoute);
+app.use("/voice", voiceRoute);
+app.use("/tts", ttsRouter);
+
 console.log("chatRoute", chatRoute);
 console.log("type =", typeof chatRoute);
-
-app.use("/chat", chatRoute);
 
 app.get("/", (_, res) => {
   res.json({
@@ -77,6 +91,27 @@ app.get(
 );
 
 const PORT = Number(process.env.PORT) || 3000;
+
+app.get("/pinterest/test", async (_, res) => {
+  try {
+    const account = await getPinterestAccount();
+
+    res.json({
+      success: true,
+      account,
+    });
+  } catch (error) {
+    console.error("Pinterest test failed:", error);
+
+    res.status(500).json({
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Pinterest API request failed",
+    });
+  }
+});
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Victor backend running on port ${PORT}`);
