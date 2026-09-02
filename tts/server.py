@@ -13,16 +13,31 @@ from kokoro import KPipeline
 app = FastAPI()
 
 pipeline = None
+pipeline_error = None
 
 
 def get_pipeline():
-    global pipeline
+    global pipeline, pipeline_error
 
-    if pipeline is None:
+    if pipeline is not None:
+        return pipeline
+
+    if pipeline_error is not None:
+        raise RuntimeError(f"Kokoro initialization previously failed: {pipeline_error}")
+
+    print("========== INITIALIZING KOKORO ==========", flush=True)
+
+    try:
         pipeline = KPipeline(lang_code="b")
+        print("========== KOKORO READY ==========", flush=True)
+        return pipeline
 
-    return pipeline
-
+    except Exception as error:
+        pipeline_error = str(error)
+        print("========== KOKORO INIT ERROR ==========", flush=True)
+        print(repr(error), flush=True)
+        print("========================================", flush=True)
+        raise
 
 class TTSRequest(BaseModel):
     text: str
@@ -69,6 +84,13 @@ def clean_for_speech(text: str) -> str:
 def health():
     return {"status": "ok"}
 
+@app.get("/debug")
+def debug():
+    return {
+        "status": "ok",
+        "pipeline_loaded": pipeline is not None,
+        "pipeline_error": pipeline_error,
+    }
 
 @app.post("/tts")
 def tts(request: TTSRequest):
